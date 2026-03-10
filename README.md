@@ -5,64 +5,33 @@ Scrapes team pages from 40+ private equity firms weekly and produces a change re
 
 ---
 
-## Setup
+## How it works (automated)
 
-```bash
-# 1. Create a virtual environment
-python -m venv .venv
+The scraper runs **automatically every Monday at 06:00 UTC** via GitHub Actions —
+no manual effort required.
 
-# 2. Activate it
-.venv\Scripts\activate          # Windows
-source .venv/bin/activate       # macOS / Linux
+Each week it:
+1. Scrapes all firm team pages (`main.py`)
+2. Compares this week vs last week (`compare.py`)
+3. Commits the results to the `data/` folder in this repo
 
-# 3. Install dependencies
-pip install -r requirements.txt
+To download the latest report, go to the **`data/` folder** in the repo and download
+the most recent `report_YYYYMMDD.xlsx` file.
 
-# 4. Install Playwright browsers (first time only)
-playwright install chromium
-```
+To trigger a run manually (outside the Monday schedule):
+1. Go to the **Actions** tab in GitHub
+2. Click **Weekly PE Firm Scrape** in the left sidebar
+3. Click **Run workflow → Run workflow**
 
----
-
-## Weekly workflow
-
-### Step 1 — Scrape
-
-```bash
-python main.py
-```
-
-Runs all scrapers and saves a timestamped snapshot:
-
-```
-employees_YYYYMMDD_HHMMSS.xlsx
-```
-
-### Step 2 — Compare
-
-```bash
-python compare.py
-```
-
-Auto-detects the two most recent `employees_*.xlsx` files and produces a report:
-
-```
-report_YYYYMMDD_HHMMSS.xlsx
-```
-
-Or pass files explicitly:
-
-```bash
-python compare.py employees_week1.xlsx employees_week2.xlsx
-```
+Results will appear in `data/` within 60–90 minutes.
 
 ---
 
-## Output files
+## Output files (in `data/`)
 
-### `employees_YYYYMMDD_HHMMSS.xlsx`
+### `employees_YYYYMMDD_HHMMSS.xlsx` — Weekly snapshot
 
-One row per employee with columns:
+One row per employee:
 
 | Column | Description |
 |---|---|
@@ -73,11 +42,11 @@ One row per employee with columns:
 | `location` | Office location |
 | `date_scraped` | Date the data was collected |
 
-### `report_YYYYMMDD_HHMMSS.xlsx`
+### `report_YYYYMMDD_HHMMSS.xlsx` — Weekly change report
 
 **Sheet: Current Employees**
 
-All employees from the current week's snapshot. The `change` column indicates:
+All employees from the current week. The `change` column indicates:
 
 | Value | Meaning | Highlight |
 |---|---|---|
@@ -85,11 +54,11 @@ All employees from the current week's snapshot. The `change` column indicates:
 | `Promotion` | Title changed since last week | Yellow cell on position |
 | `New Hire` | Not present last week | Light blue row |
 
-A `previous_role` column shows the prior title for promoted employees.
+The `previous_role` column shows the prior title for employees who were promoted.
 
 **Sheet: Leavers**
 
-Employees present last week but absent this week.
+Employees present last week but absent this week:
 
 | Column | Description |
 |---|---|
@@ -102,22 +71,52 @@ Employees present last week but absent this week.
 
 ## Firms covered
 
-40 firms are scraped across two modes:
+40+ firms scraped across two modes:
 
 - **Custom scrapers** — firms with non-standard pages (API-based, paginated, tab-based, etc.)
 - **Generic DOM scraper** — firms with standard card-based team pages
 
-A small number of firms are skipped due to Cloudflare protection or no public team page
-(see the "Skipped" section printed at the start of each run).
+A small number of firms are skipped due to Cloudflare protection or no public team page.
+These are listed in the "Skipped" section at the start of each run log (visible in GitHub Actions).
 
 ---
 
-## Scheduling (optional)
+## Local setup (optional)
 
-To run the full pipeline automatically each week, create a scheduled task that runs:
+Only needed if you want to run the scripts on your own machine.
 
+```bash
+# 1. Create a virtual environment
+python -m venv .venv
+
+# 2. Activate it
+.venv\Scripts\activate          # Windows
+source .venv/bin/activate       # macOS / Linux
+
+# 3. Install dependencies
+pip install -r requirements.txt
+
+# 4. Install Playwright browser (first time only)
+playwright install chromium
 ```
-.venv\Scripts\python.exe main.py && .venv\Scripts\python.exe compare.py
+
+### Run scraper manually
+
+```bash
+python main.py
 ```
 
-On Windows, use **Task Scheduler** and point it at a `.bat` file in this folder.
+Saves `employees_YYYYMMDD_HHMMSS.xlsx` in the current directory.
+
+### Run comparison manually
+
+```bash
+python compare.py
+```
+
+Auto-detects the two most recent `employees_*.xlsx` files and saves
+`report_YYYYMMDD_HHMMSS.xlsx`. Or pass files explicitly:
+
+```bash
+python compare.py employees_week1.xlsx employees_week2.xlsx
+```
