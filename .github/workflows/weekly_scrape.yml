@@ -1,0 +1,84 @@
+name: Weekly PE Firm Scrape
+
+on:
+  schedule:
+    - cron: '0 6 * * 1'   # Every Monday at 06:00 UTC
+  workflow_dispatch:        # Manual trigger from GitHub UI
+
+permissions:
+  contents: write           # Needed to commit results back to the repo
+
+jobs:
+  scrape-and-compare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180    # 3-hour cap (scraping 40+ firms takes ~45–90 min)
+
+    steps:
+      # ── 1. Checkout ────────────────────────────────────────────────────────
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      # ── 2. Python setup ────────────────────────────────────────────────────
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+
+      - name: Install Python dependencies
+        run: pip install -r requirements.txt
+
+      - name: Install Playwright browser
+        run: playwright install chromium --with-deps
+
+      # ── 3. Scrape ──────────────────────────────────────────────────────────
+      - name: Run scraper (main.py)
+        run: python main.py
+
+      # ── 4. Move snapshot into data/ ────────────────────────────────────────
+      - name: Move snapshot to data/
+        run: |
+          mkdir -p data
+          # Move the newly created employees_*.xlsx into data/
+          mv employees_*.xlsx data/ 2>/dev/null && echo "Snapshot moved to data/" || echo "No snapshot file found"
+
+      # ── 5. Compare (only if a previous snapshot exists) ────────────────────
+      - name: Run weekly comparison (compare.py)
+        run: |
+          FILE_COUNT=$(ls data/employees_*.xlsx 2>/dev/null | wc -l)
+          echo "Snapshots in data/: $FILE_COUNT"
+          if [ "$FILE_COUNT" -ge 2 ]; then
+            cd data && python ../compare.py
+          else
+            echo "First run — no previous snapshot to compare against. Skipping comparison."
+          fi
+
+      # ── 6. Keep only the 2 most recent employee snapshots ──────────────────
+      #       (report files are kept forever as the historical audit trail)
+      - name: Prune old employee snapshots (keep latest 2)
+        run: |
+          cd data
+          SNAPSHOTS=$(ls -t employees_*.xlsx 2>/dev/null)
+          COUNT=$(echo "$SNAPSHOTS" | grep -c . || true)
+          if [ "$COUNT" -gt 2 ]; then
+            echo "$SNAPSHOTS" | tail -n +3 | xargs rm -f
+            echo "Pruned $(($COUNT - 2)) old snapshot(s)"
+          else
+            echo "Only $COUNT snapshot(s) — nothing to prune"
+          fi
+
+      # ── 7. Commit results back to the repo ─────────────────────────────────
+      - name: Commit and push results
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/
+          if git diff --staged --quiet; then
+            echo "Nothing new to commit."
+          else
+            REPORT=$(ls data/report_*.xlsx 2>/dev/null | sort | tail -1 | xargs basename 2>/dev/null || echo "no report")
+            git commit -m "Weekly update $(date +'%Y-%m-%d') — $REPORT"
+            git push
+          fi

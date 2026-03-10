@@ -23,6 +23,6 @@ Thumbs.db
 .claude/
 .gemini/
 
-# Weekly data outputs (generated files — do not commit)
-employees_*.xlsx
-report_*.xlsx
+# Root-level generated files — ignored locally, but data/ folder IS committed
+/employees_*.xlsx
+/report_*.xlsx
