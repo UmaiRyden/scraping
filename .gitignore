@@ -3,7 +3,7 @@
 venv/
 env/
 
-# Excel temp/lock files
+# Excel temp/lock files (created when file is open in Excel)
 ~$*.xlsx
 
 # Python cache
@@ -19,5 +19,10 @@ __pycache__/
 .DS_Store
 Thumbs.db
 
-# Gemini agent files
+# Claude / AI agent files
+.claude/
 .gemini/
+
+# Weekly data outputs (generated files — do not commit)
+employees_*.xlsx
+report_*.xlsx
